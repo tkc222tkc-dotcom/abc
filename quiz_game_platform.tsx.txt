@@ -1,43 +1,45 @@
 import React, { useState, useEffect } from 'react';
-import { Trophy, Users, Coins, Clock, Target, Star, Heart, Share2, Copy, BarChart3, ImageIcon, Zap, Award, TrendingUp } from 'lucide-react';
+import { Trophy, Users, Coins, Clock, Target, Star, Gift, Zap, Award, TrendingUp } from 'lucide-react';
 
 const QuizGamePlatform = () => {
   const [currentUser, setCurrentUser] = useState(null);
   const [view, setView] = useState('login');
   const [users, setUsers] = useState([
-    { id: 1, username: 'いいね', password: 'Takeshi', role: 'owner', approved: true, coins: 0, level: 1, xp: 0, achievements: [], streak: 0, avatar: '😎', favorites: [] }
+    { id: 1, username: 'いいね', password: 'Takeshi', role: 'owner', approved: true, coins: 0, level: 1, xp: 0, achievements: [], streak: 0, avatar: '😎' }
   ]);
   const [quizzes, setQuizzes] = useState([]);
   const [activeGame, setActiveGame] = useState(null);
   const [gameResults, setGameResults] = useState([]);
   const [leaderboard, setLeaderboard] = useState([]);
-  const [showAnswerFeedback, setShowAnswerFeedback] = useState(false);
-  const [lastAnswerCorrect, setLastAnswerCorrect] = useState(false);
-  const [regForm, setRegForm] = useState({ username: '', password: '', avatar: '😊' });
+
+  // 登録フォーム
+  const [regForm, setRegForm] = useState({ username: '', password: '' });
   const [loginForm, setLoginForm] = useState({ username: '', password: '' });
+
+  // クイズ作成フォーム
   const [quizForm, setQuizForm] = useState({
     title: '',
-    description: '',
-    category: 'general',
     questions: [{ q: '', options: ['', '', '', ''], correct: 0, time: 20, points: 1000 }]
   });
+
+  // ゲームPIN
   const [gamePIN, setGamePIN] = useState('');
   const [joinPIN, setJoinPIN] = useState('');
+
+  // ゲーム状態
   const [currentQ, setCurrentQ] = useState(0);
   const [answers, setAnswers] = useState([]);
   const [timer, setTimer] = useState(0);
   const [gameStarted, setGameStarted] = useState(false);
 
-  const avatars = ['😊', '😎', '🤓', '😺', '🦁', '🐼', '🦊', '🐯', '🐸', '🦄', '🚀', '⚡', '🌟', '🔥', '💎', '🎮'];
-
   useEffect(() => {
     if (gameStarted && timer > 0) {
       const t = setTimeout(() => setTimer(timer - 1), 1000);
       return () => clearTimeout(t);
-    } else if (gameStarted && timer === 0 && !showAnswerFeedback) {
+    } else if (gameStarted && timer === 0 && currentQ < activeGame?.quiz.questions.length - 1) {
       handleNextQuestion();
     }
-  }, [timer, gameStarted, showAnswerFeedback]);
+  }, [timer, gameStarted]);
 
   const handleRegister = () => {
     if (!regForm.username || !regForm.password) {
@@ -52,18 +54,16 @@ const QuizGamePlatform = () => {
       id: users.length + 1,
       username: regForm.username,
       password: regForm.password,
-      avatar: regForm.avatar,
       role: 'user',
       approved: false,
       coins: 0,
       level: 1,
       xp: 0,
       achievements: [],
-      streak: 0,
-      favorites: []
+      streak: 0
     }]);
     alert('登録申請が送信されました。オーナーの承認をお待ちください。');
-    setRegForm({ username: '', password: '', avatar: '😊' });
+    setRegForm({ username: '', password: '' });
   };
 
   const handleLogin = () => {
@@ -85,30 +85,6 @@ const QuizGamePlatform = () => {
     setUsers(users.map(u => u.id === userId ? { ...u, approved: true } : u));
   };
 
-  const toggleFavorite = (quizId) => {
-    const isFavorited = currentUser.favorites.includes(quizId);
-    const updatedFavorites = isFavorited 
-      ? currentUser.favorites.filter(id => id !== quizId)
-      : [...currentUser.favorites, quizId];
-    
-    const updatedUser = { ...currentUser, favorites: updatedFavorites };
-    setCurrentUser(updatedUser);
-    setUsers(users.map(u => u.id === currentUser.id ? updatedUser : u));
-  };
-
-  const duplicateQuiz = (quiz) => {
-    const newQuiz = {
-      ...quiz,
-      id: quizzes.length + 1,
-      title: quiz.title + ' (コピー)',
-      creator: currentUser.username,
-      plays: 0,
-      avgScore: 0
-    };
-    setQuizzes([...quizzes, newQuiz]);
-    alert('クイズを複製しました！');
-  };
-
   const createQuiz = () => {
     if (!quizForm.title || quizForm.questions.some(q => !q.q)) {
       alert('クイズタイトルとすべての質問を入力してください');
@@ -119,16 +95,12 @@ const QuizGamePlatform = () => {
       ...quizForm,
       creator: currentUser.username,
       plays: 0,
-      avgScore: 0,
-      likes: 0,
-      createdAt: new Date().toISOString()
+      avgScore: 0
     };
     setQuizzes([...quizzes, newQuiz]);
     alert('クイズが作成されました！');
     setQuizForm({
       title: '',
-      description: '',
-      category: 'general',
       questions: [{ q: '', options: ['', '', '', ''], correct: 0, time: 20, points: 1000 }]
     });
     setView('home');
@@ -156,19 +128,9 @@ const QuizGamePlatform = () => {
       alert('ゲームは既に開始されています');
       return;
     }
-    if (game.players.find(p => p.username === currentUser.username)) {
-      alert('既に参加しています');
-      return;
-    }
     setActiveGame({
       ...game,
-      players: [...game.players, { 
-        username: currentUser.username, 
-        avatar: currentUser.avatar,
-        score: 0, 
-        answers: [],
-        streak: 0
-      }]
+      players: [...game.players, { username: currentUser.username, score: 0, answers: [] }]
     });
     setView('game-waiting');
   };
@@ -182,47 +144,25 @@ const QuizGamePlatform = () => {
   };
 
   const answerQuestion = (optionIdx) => {
-    if (showAnswerFeedback) return;
-    
     const q = activeGame.quiz.questions[currentQ];
     const isCorrect = optionIdx === q.correct;
     const timeBonus = Math.floor((timer / q.time) * 500);
     const points = isCorrect ? q.points + timeBonus : 0;
     
-    setLastAnswerCorrect(isCorrect);
-    setShowAnswerFeedback(true);
-
-    const newAnswers = [...answers, { 
-      q: currentQ, 
-      answer: optionIdx, 
-      correct: isCorrect, 
-      points,
-      timeLeft: timer 
-    }];
+    const newAnswers = [...answers, { q: currentQ, answer: optionIdx, correct: isCorrect, points }];
     setAnswers(newAnswers);
 
     const player = activeGame.players.find(p => p.username === currentUser.username);
     player.score += points;
     player.answers = newAnswers;
-    
+
     if (isCorrect) {
-      player.streak = (player.streak || 0) + 1;
-      const xpGain = 50 + (player.streak * 10);
-      const updatedUser = { 
-        ...currentUser, 
-        coins: currentUser.coins + 10 + player.streak, 
-        xp: currentUser.xp + xpGain 
-      };
+      const updatedUser = { ...currentUser, coins: currentUser.coins + 10, xp: currentUser.xp + 50 };
       setCurrentUser(updatedUser);
       setUsers(users.map(u => u.id === currentUser.id ? updatedUser : u));
-    } else {
-      player.streak = 0;
     }
 
-    setTimeout(() => {
-      setShowAnswerFeedback(false);
-      handleNextQuestion();
-    }, 2000);
+    handleNextQuestion();
   };
 
   const handleNextQuestion = () => {
@@ -239,14 +179,7 @@ const QuizGamePlatform = () => {
     const sortedPlayers = [...activeGame.players].sort((a, b) => b.score - a.score);
     setGameResults(sortedPlayers);
     
-    const quiz = quizzes.find(q => q.id === activeGame.quiz.id);
-    if (quiz) {
-      const totalScore = sortedPlayers.reduce((sum, p) => sum + p.score, 0);
-      const avgScore = totalScore / sortedPlayers.length;
-      quiz.plays = (quiz.plays || 0) + 1;
-      quiz.avgScore = ((quiz.avgScore * (quiz.plays - 1)) + avgScore) / quiz.plays;
-    }
-    
+    // リーダーボード更新
     const newLeaderboard = [...leaderboard];
     sortedPlayers.forEach((p, idx) => {
       const existing = newLeaderboard.find(l => l.username === p.username);
@@ -257,7 +190,6 @@ const QuizGamePlatform = () => {
       } else {
         newLeaderboard.push({
           username: p.username,
-          avatar: p.avatar,
           totalScore: p.score,
           gamesPlayed: 1,
           bestRank: idx + 1
@@ -266,14 +198,9 @@ const QuizGamePlatform = () => {
     });
     setLeaderboard(newLeaderboard.sort((a, b) => b.totalScore - a.totalScore));
 
-    const player = sortedPlayers.find(p => p.username === currentUser.username);
-    if (player) {
-      const bonusCoins = idx => idx === 0 ? 100 : idx === 1 ? 50 : 25;
-      const idx = sortedPlayers.indexOf(player);
-      const updatedUser = { 
-        ...currentUser, 
-        coins: currentUser.coins + bonusCoins(idx)
-      };
+    // 実績とボーナス
+    if (sortedPlayers[0]?.username === currentUser.username) {
+      const updatedUser = { ...currentUser, coins: currentUser.coins + 100, achievements: [...currentUser.achievements, '🏆 1位獲得'] };
       setCurrentUser(updatedUser);
       setUsers(users.map(u => u.id === currentUser.id ? updatedUser : u));
     }
@@ -282,6 +209,7 @@ const QuizGamePlatform = () => {
     setView('game-results');
   };
 
+  // ログイン/登録画面
   if (!currentUser) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-purple-600 via-pink-500 to-orange-400 flex items-center justify-center p-4">
@@ -337,26 +265,10 @@ const QuizGamePlatform = () => {
               <input
                 type="password"
                 placeholder="パスワード"
-                className="w-full p-3 border-2 border-gray-300 rounded-xl mb-4 focus:border-purple-500 focus:outline-none"
+                className="w-full p-3 border-2 border-gray-300 rounded-xl mb-6 focus:border-purple-500 focus:outline-none"
                 value={regForm.password}
                 onChange={(e) => setRegForm({ ...regForm, password: e.target.value })}
               />
-              <div className="mb-6">
-                <label className="block text-sm font-semibold text-gray-700 mb-2">アバターを選択</label>
-                <div className="grid grid-cols-8 gap-2">
-                  {avatars.map(avatar => (
-                    <button
-                      key={avatar}
-                      onClick={() => setRegForm({ ...regForm, avatar })}
-                      className={`text-2xl p-2 rounded-lg border-2 transition ${
-                        regForm.avatar === avatar ? 'border-purple-600 bg-purple-50' : 'border-gray-200'
-                      }`}
-                    >
-                      {avatar}
-                    </button>
-                  ))}
-                </div>
-              </div>
               <button
                 onClick={handleRegister}
                 className="w-full bg-gradient-to-r from-purple-600 to-pink-600 text-white py-3 rounded-xl font-bold hover:shadow-lg transition mb-4"
@@ -376,8 +288,10 @@ const QuizGamePlatform = () => {
     );
   }
 
+  // メインアプリ
   return (
     <div className="min-h-screen bg-gray-100">
+      {/* ヘッダー */}
       <div className="bg-gradient-to-r from-purple-600 to-pink-600 text-white p-4 shadow-lg">
         <div className="max-w-6xl mx-auto flex justify-between items-center">
           <div className="flex items-center gap-4">
@@ -393,10 +307,7 @@ const QuizGamePlatform = () => {
               <Star className="w-5 h-5" />
               <span className="font-bold">Lv.{currentUser.level}</span>
             </div>
-            <div className="flex items-center gap-2">
-              <span className="text-2xl">{currentUser.avatar}</span>
-              <span className="font-semibold">{currentUser.username}</span>
-            </div>
+            <span className="font-semibold">{currentUser.username}</span>
             <button
               onClick={() => { setCurrentUser(null); setView('login'); }}
               className="bg-white/20 hover:bg-white/30 px-4 py-2 rounded-full font-semibold transition"
@@ -408,18 +319,45 @@ const QuizGamePlatform = () => {
       </div>
 
       <div className="max-w-6xl mx-auto p-6">
-        {!['game-lobby', 'game-waiting', 'game-play', 'game-results'].includes(view) && (
-          <div className="mb-6 flex gap-4 flex-wrap">
-            <button onClick={() => setView('home')} className="bg-purple-600 text-white px-6 py-3 rounded-xl font-bold hover:bg-purple-700 transition">ホーム</button>
-            <button onClick={() => setView('create-quiz')} className="bg-pink-600 text-white px-6 py-3 rounded-xl font-bold hover:bg-pink-700 transition">クイズ作成</button>
-            <button onClick={() => setView('join-game')} className="bg-orange-600 text-white px-6 py-3 rounded-xl font-bold hover:bg-orange-700 transition">ゲームに参加</button>
-            <button onClick={() => setView('leaderboard')} className="bg-blue-600 text-white px-6 py-3 rounded-xl font-bold hover:bg-blue-700 transition">ランキング</button>
+        {/* ナビゲーション */}
+        {view === 'home' && (
+          <div className="mb-6 flex gap-4">
+            <button
+              onClick={() => setView('home')}
+              className="bg-purple-600 text-white px-6 py-3 rounded-xl font-bold hover:bg-purple-700 transition"
+            >
+              ホーム
+            </button>
+            <button
+              onClick={() => setView('create-quiz')}
+              className="bg-pink-600 text-white px-6 py-3 rounded-xl font-bold hover:bg-pink-700 transition"
+            >
+              クイズ作成
+            </button>
+            <button
+              onClick={() => setView('join-game')}
+              className="bg-orange-600 text-white px-6 py-3 rounded-xl font-bold hover:bg-orange-700 transition"
+            >
+              ゲームに参加
+            </button>
+            <button
+              onClick={() => setView('leaderboard')}
+              className="bg-blue-600 text-white px-6 py-3 rounded-xl font-bold hover:bg-blue-700 transition"
+            >
+              ランキング
+            </button>
             {currentUser.role === 'owner' && (
-              <button onClick={() => setView('admin')} className="bg-gray-700 text-white px-6 py-3 rounded-xl font-bold hover:bg-gray-800 transition">管理画面</button>
+              <button
+                onClick={() => setView('admin')}
+                className="bg-gray-700 text-white px-6 py-3 rounded-xl font-bold hover:bg-gray-800 transition"
+              >
+                管理画面
+              </button>
             )}
           </div>
         )}
 
+        {/* ホーム画面 */}
         {view === 'home' && (
           <div>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
@@ -440,121 +378,37 @@ const QuizGamePlatform = () => {
               </div>
             </div>
 
-            <div className="flex justify-between items-center mb-4">
-              <h2 className="text-2xl font-bold text-gray-800">利用可能なクイズ</h2>
+            <h2 className="text-2xl font-bold mb-4 text-gray-800">利用可能なクイズ</h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {quizzes.map(quiz => (
+                <div key={quiz.id} className="bg-white rounded-xl p-6 shadow-md hover:shadow-xl transition">
+                  <h3 className="font-bold text-lg mb-2 text-gray-800">{quiz.title}</h3>
+                  <p className="text-gray-600 mb-4">作成者: {quiz.creator}</p>
+                  <p className="text-gray-600 mb-4">質問数: {quiz.questions.length}</p>
+                  <button
+                    onClick={() => startGame(quiz)}
+                    className="w-full bg-gradient-to-r from-purple-600 to-pink-600 text-white py-2 rounded-lg font-bold hover:shadow-lg transition"
+                  >
+                    ゲームを開始
+                  </button>
+                </div>
+              ))}
             </div>
-
-            {quizzes.length === 0 ? (
-              <div className="text-center py-12 bg-white rounded-xl">
-                <Target className="w-16 h-16 mx-auto text-gray-400 mb-4" />
-                <p className="text-gray-600 text-lg mb-4">まだクイズがありません</p>
-                <button
-                  onClick={() => setView('create-quiz')}
-                  className="bg-gradient-to-r from-purple-600 to-pink-600 text-white px-8 py-3 rounded-xl font-bold hover:shadow-lg transition"
-                >
-                  最初のクイズを作成
-                </button>
-              </div>
-            ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {quizzes.map(quiz => (
-                  <div key={quiz.id} className="bg-white rounded-xl shadow-md hover:shadow-xl transition overflow-hidden">
-                    <div className="h-32 bg-gradient-to-r from-purple-400 to-pink-400 flex items-center justify-center">
-                      <ImageIcon className="w-12 h-12 text-white" />
-                    </div>
-                    <div className="p-6">
-                      <div className="flex justify-between items-start mb-2">
-                        <h3 className="font-bold text-lg text-gray-800">{quiz.title}</h3>
-                        <button
-                          onClick={() => toggleFavorite(quiz.id)}
-                          className={`transition ${currentUser.favorites.includes(quiz.id) ? 'text-red-500' : 'text-gray-400'}`}
-                        >
-                          <Heart className="w-5 h-5" fill={currentUser.favorites.includes(quiz.id) ? 'currentColor' : 'none'} />
-                        </button>
-                      </div>
-                      {quiz.description && (
-                        <p className="text-gray-600 text-sm mb-3">{quiz.description}</p>
-                      )}
-                      <div className="flex items-center gap-4 text-sm text-gray-600 mb-4">
-                        <span>作成者: {quiz.creator}</span>
-                        <span>質問数: {quiz.questions.length}</span>
-                      </div>
-                      <div className="flex items-center gap-4 text-sm text-gray-600 mb-4">
-                        <span className="flex items-center gap-1">
-                          <Users className="w-4 h-4" />
-                          {quiz.plays || 0}回
-                        </span>
-                        <span className="flex items-center gap-1">
-                          <BarChart3 className="w-4 h-4" />
-                          {quiz.avgScore ? Math.round(quiz.avgScore) : 0}点
-                        </span>
-                      </div>
-                      <div className="flex gap-2">
-                        <button
-                          onClick={() => startGame(quiz)}
-                          className="flex-1 bg-gradient-to-r from-purple-600 to-pink-600 text-white py-2 rounded-lg font-bold hover:shadow-lg transition"
-                        >
-                          開始
-                        </button>
-                        <button
-                          onClick={() => duplicateQuiz(quiz)}
-                          className="px-3 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition"
-                        >
-                          <Copy className="w-4 h-4" />
-                        </button>
-                        <button className="px-3 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition">
-                          <Share2 className="w-4 h-4" />
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
           </div>
         )}
 
+        {/* クイズ作成画面 */}
         {view === 'create-quiz' && (
           <div className="bg-white rounded-2xl p-8 shadow-lg">
             <h2 className="text-3xl font-bold mb-6 text-gray-800">クイズ作成</h2>
+            <input
+              type="text"
+              placeholder="クイズタイトル"
+              className="w-full p-3 border-2 border-gray-300 rounded-xl mb-6 focus:border-purple-500 focus:outline-none"
+              value={quizForm.title}
+              onChange={(e) => setQuizForm({ ...quizForm, title: e.target.value })}
+            />
             
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-              <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">クイズタイトル</label>
-                <input
-                  type="text"
-                  placeholder="クイズタイトル"
-                  className="w-full p-3 border-2 border-gray-300 rounded-xl focus:border-purple-500 focus:outline-none"
-                  value={quizForm.title}
-                  onChange={(e) => setQuizForm({ ...quizForm, title: e.target.value })}
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">カテゴリー</label>
-                <select
-                  className="w-full p-3 border-2 border-gray-300 rounded-xl focus:border-purple-500 focus:outline-none"
-                  value={quizForm.category}
-                  onChange={(e) => setQuizForm({ ...quizForm, category: e.target.value })}
-                >
-                  <option value="general">一般</option>
-                  <option value="science">科学</option>
-                  <option value="history">歴史</option>
-                  <option value="entertainment">エンタメ</option>
-                </select>
-              </div>
-            </div>
-
-            <div className="mb-6">
-              <label className="block text-sm font-semibold text-gray-700 mb-2">説明</label>
-              <textarea
-                placeholder="クイズの説明"
-                className="w-full p-3 border-2 border-gray-300 rounded-xl focus:border-purple-500 focus:outline-none"
-                rows="3"
-                value={quizForm.description}
-                onChange={(e) => setQuizForm({ ...quizForm, description: e.target.value })}
-              />
-            </div>
-
             {quizForm.questions.map((q, qIdx) => (
               <div key={qIdx} className="mb-6 p-6 bg-gray-50 rounded-xl">
                 <h3 className="font-bold mb-4 text-lg text-gray-800">質問 {qIdx + 1}</h3>
@@ -629,4 +483,297 @@ const QuizGamePlatform = () => {
               </div>
             ))}
 
-            <div className="flex gap-4
+            <div className="flex gap-4">
+              <button
+                onClick={() => setQuizForm({
+                  ...quizForm,
+                  questions: [...quizForm.questions, { q: '', options: ['', '', '', ''], correct: 0, time: 20, points: 1000 }]
+                })}
+                className="bg-blue-600 text-white px-6 py-3 rounded-xl font-bold hover:bg-blue-700 transition"
+              >
+                質問を追加
+              </button>
+              <button
+                onClick={createQuiz}
+                className="bg-gradient-to-r from-purple-600 to-pink-600 text-white px-6 py-3 rounded-xl font-bold hover:shadow-lg transition"
+              >
+                クイズを作成
+              </button>
+              <button
+                onClick={() => setView('home')}
+                className="bg-gray-400 text-white px-6 py-3 rounded-xl font-bold hover:bg-gray-500 transition"
+              >
+                キャンセル
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* ゲーム参加画面 */}
+        {view === 'join-game' && (
+          <div className="bg-white rounded-2xl p-8 shadow-lg max-w-md mx-auto">
+            <h2 className="text-3xl font-bold mb-6 text-center text-gray-800">ゲームに参加</h2>
+            <input
+              type="text"
+              placeholder="ゲームPINを入力"
+              className="w-full p-4 border-2 border-gray-300 rounded-xl mb-6 text-center text-2xl font-bold focus:border-purple-500 focus:outline-none"
+              value={joinPIN}
+              onChange={(e) => setJoinPIN(e.target.value.toUpperCase())}
+            />
+            <button
+              onClick={joinGame}
+              className="w-full bg-gradient-to-r from-purple-600 to-pink-600 text-white py-4 rounded-xl font-bold text-lg hover:shadow-lg transition mb-4"
+            >
+              参加する
+            </button>
+            <button
+              onClick={() => setView('home')}
+              className="w-full bg-gray-400 text-white py-3 rounded-xl font-bold hover:bg-gray-500 transition"
+            >
+              戻る
+            </button>
+          </div>
+        )}
+
+        {/* ゲームロビー画面 */}
+        {view === 'game-lobby' && (
+          <div className="bg-white rounded-2xl p-8 shadow-lg max-w-2xl mx-auto">
+            <h2 className="text-3xl font-bold mb-6 text-center text-gray-800">{activeGame.quiz.title}</h2>
+            <div className="bg-gradient-to-r from-purple-600 to-pink-600 rounded-xl p-8 mb-6">
+              <p className="text-white text-center mb-2">ゲームPIN</p>
+              <p className="text-white text-center text-5xl font-bold">{gamePIN}</p>
+            </div>
+            <h3 className="font-bold mb-4 text-xl text-gray-800">参加者 ({activeGame.players.length})</h3>
+            <div className="grid grid-cols-2 gap-4 mb-6">
+              {activeGame.players.map((p, idx) => (
+                <div key={idx} className="bg-gray-100 p-4 rounded-xl">
+                  <p className="font-semibold text-gray-800">{p.username}</p>
+                </div>
+              ))}
+            </div>
+            <button
+              onClick={startGamePlay}
+              disabled={activeGame.players.length === 0}
+              className="w-full bg-gradient-to-r from-purple-600 to-pink-600 text-white py-4 rounded-xl font-bold text-lg hover:shadow-lg transition disabled:opacity-50"
+            >
+              ゲームを開始
+            </button>
+          </div>
+        )}
+
+        {/* 待機画面 */}
+        {view === 'game-waiting' && (
+          <div className="bg-white rounded-2xl p-8 shadow-lg max-w-md mx-auto text-center">
+            <h2 className="text-3xl font-bold mb-6 text-gray-800">参加しました！</h2>
+            <div className="animate-pulse mb-6">
+              <Users className="w-24 h-24 mx-auto text-purple-600" />
+            </div>
+            <p className="text-xl text-gray-600">ホストがゲームを開始するまでお待ちください...</p>
+          </div>
+        )}
+
+        {/* ゲームプレイ画面 */}
+        {view === 'game-play' && (
+          <div className="max-w-4xl mx-auto">
+            <div className="bg-white rounded-2xl p-8 shadow-lg mb-6">
+              <div className="flex justify-between items-center mb-6">
+                <div className="flex items-center gap-2">
+                  <Clock className="w-6 h-6 text-purple-600" />
+                  <span className="text-3xl font-bold text-purple-600">{timer}秒</span>
+                </div>
+                <div className="text-gray-600">質問 {currentQ + 1} / {activeGame.quiz.questions.length}</div>
+                <div className="flex items-center gap-2">
+                  <Trophy className="w-6 h-6 text-orange-600" />
+                  <span className="text-2xl font-bold text-orange-600">
+                    {activeGame.players.find(p => p.username === currentUser.username)?.score || 0}
+                  </span>
+                </div>
+              </div>
+              
+              <h3 className="text-2xl font-bold mb-8 text-center text-gray-800">
+                {activeGame.quiz.questions[currentQ].q}
+              </h3>
+
+              <div className="grid grid-cols-2 gap-4">
+                {activeGame.quiz.questions[currentQ].options.map((opt, idx) => (
+                  <button
+                    key={idx}
+                    onClick={() => answerQuestion(idx)}
+                    className={`p-6 rounded-xl font-bold text-lg transition hover:scale-105 ${
+                      idx === 0 ? 'bg-red-500 hover:bg-red-600' :
+                      idx === 1 ? 'bg-blue-500 hover:bg-blue-600' :
+                      idx === 2 ? 'bg-yellow-500 hover:bg-yellow-600' :
+                      'bg-green-500 hover:bg-green-600'
+                    } text-white`}
+                  >
+                    {opt}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* 結果画面 */}
+        {view === 'game-results' && (
+          <div className="max-w-4xl mx-auto">
+            <div className="bg-white rounded-2xl p-8 shadow-lg">
+              <h2 className="text-4xl font-bold mb-8 text-center text-gray-800">ゲーム結果</h2>
+              
+              <div className="mb-8">
+                {gameResults.map((player, idx) => (
+                  <div key={idx} className={`p-6 rounded-xl mb-4 ${
+                    idx === 0 ? 'bg-gradient-to-r from-yellow-400 to-orange-500' :
+                    idx === 1 ? 'bg-gradient-to-r from-gray-300 to-gray-400' :
+                    idx === 2 ? 'bg-gradient-to-r from-orange-300 to-orange-400' :
+                    'bg-gray-100'
+                  }`}>
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-4">
+                        {idx === 0 && <Trophy className="w-8 h-8 text-white" />}
+                        {idx === 1 && <Award className="w-8 h-8 text-white" />}
+                        {idx === 2 && <Award className="w-8 h-8 text-white" />}
+                        <div>
+                          <p className={`text-xl font-bold ${idx < 3 ? 'text-white' : 'text-gray-800'}`}>
+                            {idx + 1}位. {player.username}
+                          </p>
+                          <p className={`${idx < 3 ? 'text-white/90' : 'text-gray-600'}`}>
+                            正解数: {player.answers.filter(a => a.correct).length} / {activeGame.quiz.questions.length}
+                          </p>
+                        </div>
+                      </div>
+                      <div className={`text-3xl font-bold ${idx < 3 ? 'text-white' : 'text-gray-800'}`}>
+                        {player.score}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              <div className="flex gap-4">
+                <button
+                  onClick={() => {
+                    setView('home');
+                    setActiveGame(null);
+                    setGameResults([]);
+                    setAnswers([]);
+                    setCurrentQ(0);
+                  }}
+                  className="flex-1 bg-gradient-to-r from-purple-600 to-pink-600 text-white py-4 rounded-xl font-bold text-lg hover:shadow-lg transition"
+                >
+                  ホームに戻る
+                </button>
+                <button
+                  onClick={() => setView('leaderboard')}
+                  className="flex-1 bg-blue-600 text-white py-4 rounded-xl font-bold text-lg hover:bg-blue-700 transition"
+                >
+                  ランキングを見る
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ランキング画面 */}
+        {view === 'leaderboard' && (
+          <div className="bg-white rounded-2xl p-8 shadow-lg">
+            <h2 className="text-3xl font-bold mb-6 text-gray-800 flex items-center gap-3">
+              <TrendingUp className="w-8 h-8 text-purple-600" />
+              総合ランキング
+            </h2>
+            
+            {leaderboard.length === 0 ? (
+              <p className="text-center text-gray-600 py-12">まだランキングデータがありません</p>
+            ) : (
+              <div>
+                {leaderboard.map((player, idx) => (
+                  <div key={idx} className="p-6 bg-gray-50 rounded-xl mb-4 hover:bg-gray-100 transition">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-4">
+                        <div className={`text-2xl font-bold ${
+                          idx === 0 ? 'text-yellow-500' :
+                          idx === 1 ? 'text-gray-400' :
+                          idx === 2 ? 'text-orange-400' :
+                          'text-gray-600'
+                        }`}>
+                          #{idx + 1}
+                        </div>
+                        <div>
+                          <p className="text-xl font-bold text-gray-800">{player.username}</p>
+                          <p className="text-gray-600">
+                            プレイ回数: {player.gamesPlayed} | 最高順位: {player.bestRank}位
+                          </p>
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-3xl font-bold text-purple-600">{player.totalScore}</p>
+                        <p className="text-sm text-gray-600">総合スコア</p>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            <button
+              onClick={() => setView('home')}
+              className="w-full mt-6 bg-gray-400 text-white py-3 rounded-xl font-bold hover:bg-gray-500 transition"
+            >
+              戻る
+            </button>
+          </div>
+        )}
+
+        {/* 管理画面 */}
+        {view === 'admin' && currentUser.role === 'owner' && (
+          <div className="bg-white rounded-2xl p-8 shadow-lg">
+            <h2 className="text-3xl font-bold mb-6 text-gray-800">管理画面</h2>
+            
+            <h3 className="text-xl font-bold mb-4 text-gray-800">承認待ちユーザー</h3>
+            <div className="mb-8">
+              {users.filter(u => !u.approved).length === 0 ? (
+                <p className="text-gray-600">承認待ちのユーザーはいません</p>
+              ) : (
+                users.filter(u => !u.approved).map(user => (
+                  <div key={user.id} className="p-4 bg-gray-50 rounded-xl mb-4 flex justify-between items-center">
+                    <div>
+                      <p className="font-bold text-gray-800">{user.username}</p>
+                      <p className="text-sm text-gray-600">登録日時: {new Date().toLocaleDateString()}</p>
+                    </div>
+                    <button
+                      onClick={() => approveUser(user.id)}
+                      className="bg-green-600 text-white px-6 py-2 rounded-lg font-bold hover:bg-green-700 transition"
+                    >
+                      承認する
+                    </button>
+                  </div>
+                ))
+              )}
+            </div>
+
+            <h3 className="text-xl font-bold mb-4 text-gray-800">承認済みユーザー ({users.filter(u => u.approved).length})</h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+              {users.filter(u => u.approved).map(user => (
+                <div key={user.id} className="p-4 bg-gray-50 rounded-xl">
+                  <p className="font-bold text-gray-800">{user.username}</p>
+                  <p className="text-sm text-gray-600">
+                    コイン: {user.coins} | レベル: {user.level} | {user.role === 'owner' ? '👑 オーナー' : 'ユーザー'}
+                  </p>
+                </div>
+              ))}
+            </div>
+
+            <button
+              onClick={() => setView('home')}
+              className="w-full bg-gray-400 text-white py-3 rounded-xl font-bold hover:bg-gray-500 transition"
+            >
+              戻る
+            </button>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
+
+export default QuizGamePlatform;
